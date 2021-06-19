@@ -1,6 +1,8 @@
 import pandas as pd
 import re
 import csv
+import numpy as np
+from datetime import timedelta
 
 
 
@@ -49,19 +51,28 @@ def get_cleaned_text(text, should_remove_signs):
     return cleaned_text
 
 
-def get_processed_posts(posts):
-    for i, row in posts.iterrows():
-        currentMessage = row['message']
+# def get_processed_posts(posts):
+#     for i, row in posts.iterrows():
+#         currentMessage = row['message']
+#
+#         if currentMessage is not None and type(currentMessage) == str:
+#             clearedMessage = get_cleaned_text(currentMessage, False)
+#             row['message'] = clearedMessage
+#         else:
+#             posts.drop(labels=[i], axis=0)
+#
+#         print(i)
+#
+#     return posts
 
-        if currentMessage is not None and type(currentMessage) == str:
-            clearedMessage = get_cleaned_text(currentMessage, False)
-            row['message'] = clearedMessage
-        else:
-            posts.drop(labels=[i], axis=0)
 
-        print(i)
+def append_columns(merged, coinInfo):
+    for i, row in merged.iterrows():
+        merged.loc[i]['previous_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
+        merged.loc[i]['next_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
+        merged.loc[i]['after_three_days_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
 
-    return posts
+    return merged
 
 
 coinInfo = pd.read_csv('../data/cryptoInfo/coin_Bitcoin.csv')
@@ -73,7 +84,7 @@ bitcoinPosts = bitcoinPosts[selectedColumns]
 bitcoinNames = ['BTC', 'btc', 'Btc', 'Bitcoin', 'bitcoin', 'bit']
 
 
-processedPosts = get_processed_posts(bitcoinPosts)
+processedPosts = bitcoinPosts #get_processed_posts(bitcoinPosts)
 
 
 filteredPosts = processedPosts[processedPosts.message.str.contains('|'.join(bitcoinNames), na=False)]
@@ -84,11 +95,23 @@ print(coinInfo["Date"].head())
 print(filteredPosts["date"].head())
 
 merged = filteredPosts.merge(coinInfo, how='left', left_on='date', right_on='Date')
+print(merged.iloc[0])
+print(merged.iloc[0]["date"] + timedelta(days=1))
+
+#merged['previous_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (merged['Date'] + timedelta(days=1))]['Close']
+
+# def smth(x, y):
+#     x['previous_day_closing_price'] = y['Date'].loc[y['Date'] == (x['Date'] + timedelta(days=1))]['Close']
+#     return x
+#
+# merged = merged.apply(lambda x: smth(x, coinInfo))
+merged = append_columns(merged, coinInfo)
+
 
 merged.to_csv('../data/mergedData.csv')
 
-#Add previous date price
-#Add next day price
+# Add previous date price
+# Add next day price
 # Add price after 3 days
 
 
