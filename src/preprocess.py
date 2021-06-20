@@ -50,27 +50,40 @@ def get_cleaned_text(text, should_remove_signs):
 
     return cleaned_text
 
+def get_processed_posts(posts):
+    for i, row in posts.iterrows():
+        currentMessage = row['message']
 
-# def get_processed_posts(posts):
-#     for i, row in posts.iterrows():
-#         currentMessage = row['message']
-#
-#         if currentMessage is not None and type(currentMessage) == str:
-#             clearedMessage = get_cleaned_text(currentMessage, False)
-#             row['message'] = clearedMessage
-#         else:
-#             posts.drop(labels=[i], axis=0)
-#
-#         print(i)
-#
-#     return posts
+        if currentMessage is not None and type(currentMessage) == str:
+            clearedMessage = get_cleaned_text(currentMessage, False)
+            row['message'] = clearedMessage
+        else:
+            posts.drop(labels=[i], axis=0)
+
+        print(i)
+
+    return posts
+
+def get_coin_info_for_date(coinInfo, date):
+    return coinInfo.loc[coinInfo['Date'] == date]['Close'].values[0]
 
 
 def append_columns(merged, coinInfo):
     for i, row in merged.iterrows():
-        merged.loc[i]['previous_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
-        merged.loc[i]['next_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
-        merged.loc[i]['after_three_days_closing_price'] = coinInfo.loc[coinInfo['Date'] == (row['Date'] + timedelta(days=1))]['Close']
+        rowDate = row['Date']
+        previousDay = rowDate - timedelta(days=1)
+        nextDay = rowDate + timedelta(days=1)
+        afterThreeDaysDate = rowDate + timedelta(days=3)
+        movementSincePreviousDay = get_coin_info_for_date(coinInfo, previousDay) - row['Close']
+        movementTheDayAfter = row['Close'] - get_coin_info_for_date(coinInfo, nextDay)
+        movementThreeDayAfter = row['Close'] - get_coin_info_for_date(coinInfo, afterThreeDaysDate)
+
+        merged.loc[i, ['previous_day_closing_price']] = get_coin_info_for_date(coinInfo, previousDay)
+        merged.loc[i, ['next_day_closing_price']] = get_coin_info_for_date(coinInfo, nextDay)
+        merged.loc[i, ['after_three_days_closing_price']] = get_coin_info_for_date(coinInfo, afterThreeDaysDate)
+        merged.loc[i, ['movement_since_previous_day']] = movementSincePreviousDay
+        merged.loc[i, ['movement_the_day_after']] = movementTheDayAfter
+        merged.loc[i, ['movement_three_days_after']] = movementThreeDayAfter
 
     return merged
 
@@ -95,24 +108,10 @@ print(coinInfo["Date"].head())
 print(filteredPosts["date"].head())
 
 merged = filteredPosts.merge(coinInfo, how='left', left_on='date', right_on='Date')
-print(merged.iloc[0])
-print(merged.iloc[0]["date"] + timedelta(days=1))
 
-#merged['previous_day_closing_price'] = coinInfo.loc[coinInfo['Date'] == (merged['Date'] + timedelta(days=1))]['Close']
-
-# def smth(x, y):
-#     x['previous_day_closing_price'] = y['Date'].loc[y['Date'] == (x['Date'] + timedelta(days=1))]['Close']
-#     return x
-#
-# merged = merged.apply(lambda x: smth(x, coinInfo))
 merged = append_columns(merged, coinInfo)
-
-
 merged.to_csv('../data/mergedData.csv')
 
-# Add previous date price
-# Add next day price
-# Add price after 3 days
 
 
 
