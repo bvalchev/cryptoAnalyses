@@ -52,36 +52,59 @@ class KNN_NLC_Classifer():
         tfidf = self.vectorizer.fit_transform([text1, text2])
         return ((tfidf * tfidf.T).A)[0, 1]
 
+    def get_most_similar_document(self, document, start_index, end_index):
+
+        tic = time.perf_counter()
+        sample = dataset['message'][start_index:end_index]
+        print(sample.tail())
+        sample.loc[end_index] = document
+        print(sample.loc[end_index ])
+        print(end_index)
+        tfidf = TfidfVectorizer().fit_transform(sample[start_index:end_index])
+        pairwise_similarity = tfidf * tfidf.T
+        arr = pairwise_similarity.toarray()
+        np.fill_diagonal(arr, np.nan)
+        #input_idx = sample.index(document)
+        result_idx = np.nanargmax(arr[end_index-1])
+        print(sample[result_idx])
+        toc = time.perf_counter()
+        print(f"Pairwise built in {toc - tic:0.4f} seconds")
+        # no need to normalize, sin
+        # ce Vectorizer will return normalized tf-idf
+        return result_idx
+
     # This function runs the K(1) nearest neighbour algorithm and
     # returns the label with closest match.
     def predict(self, x_test):
         self.x_test = x_test
         y_predict = []
 
-        tic = time.perf_counter()
-        tfidf = TfidfVectorizer().fit_transform(dataset['message'][1:1000])
-        pairwise_similarity = tfidf * tfidf.T
-        arr = pairwise_similarity.toarray()
-        np.fill_diagonal(arr, np.nan)
-        result_idx = np.nanargmax(arr[998])
-        print(dataset['message'][result_idx])
-        toc = time.perf_counter()
-        print(pairwise_similarity)
-        print(f"Pairwise built in {toc - tic:0.4f} seconds")
-        # no need to normalize, since Vectorizer will return normalized tf-idf
-        print('we ready')
-
-
         for i in range(len(x_test)):
             tic = time.perf_counter()
 
             max_sim = 0
             max_index = 0
-            for j in range(self.x_train.shape[0]):
-                temp = self.cosine_sim(x_test[i + train_size + 1], self.x_train[j])#self.document_similarity(x_test[i + train_size + 1], self.x_train[j])
-                if temp > max_sim:
-                    max_sim = temp
-                    max_index = j
+            step = 1000
+            j = 0
+            print(self.x_train.shape[0])
+            if x_test[i + train_size + 1] != '' and x_test[i + train_size + 1] is not None:
+                while(j < self.x_train.shape[0]):
+                    print(j)
+                    if (j +1 >= self.x_train.shape[0]):
+                        j += 1
+                    elif (j + step > self.x_train.shape[0]):
+                        temp = self.get_most_similar_document(x_test[i + train_size + 1], j, self.x_train.shape[0])
+                        if temp > max_sim:
+                            max_sim = temp
+                            max_index = j
+                        j = self.x_train.shape[0]
+                    else:
+                        temp = self.get_most_similar_document(x_test[i + train_size + 1], j, j + step - 1)
+                        if temp > max_sim:
+                            max_sim = temp
+                            max_index = j
+                        j += step
+
             y_predict.append(self.y_train[max_index])
             print(self.y_train[max_index])
             print(test_corpus.loc[i + train_size + 1, 'output'])
